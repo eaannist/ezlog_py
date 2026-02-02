@@ -1,6 +1,7 @@
-# ezlogger
+# ezlog (Python)
 
-Simple, performant logging with ANSI colors for Python.
+Simple, performant logging with ANSI colors for Python.  
+Published on PyPI as **ezlog-py** (import as `ezlog`).
 
 - **5 levels**: `error`, `warn`, `info`, `success`, `debug`
 - **Short aliases**: `e`, `w`, `i`, `s`, `d`
@@ -12,22 +13,15 @@ Simple, performant logging with ANSI colors for Python.
 ## Install
 
 ```bash
-pip install -e .
+pip install ezlog-py
 ```
 
 ## Usage
 
 ```python
-from ezlogger import EzLog, log
+from ezlog import EzLog, create_error_handler
 
-# Default instance (debug off in production via ENV=production)
-log.success("Application started")
-log.info("Environment: dev")
-log.w("Warning")
-log.e("Error")
-log.d("Debug")
-
-# Custom config
+# Create your own logger (no pre-initialized log instance)
 logger = EzLog({
     "levels": {"error": True, "warn": True, "info": True, "success": True, "debug": False},
     "useColors": True,
@@ -35,31 +29,33 @@ logger = EzLog({
     "useSymbols": False,
     "useTimestamp": True,
 })
-logger.configure({"useTimestamp": False})
+logger.success("Application started")
+logger.info("Environment: dev")
+logger.w("Warning")
+logger.e("Error")
+logger.d("Debug")
 
-# Objects and errors
-log.info("User:", {"id": 1, "name": "John"})
-log.error("Failed", Exception("Connection failed"))
+logger.configure({"useTimestamp": False})
+logger.info("User:", {"id": 1, "name": "John"})
+logger.error("Failed", Exception("Connection failed"))
 
 # Error handler for routers (e.g. FastAPI/Starlette)
-from ezlogger import create_error_handler
 on_error = create_error_handler()
 on_error(exception, request)
 ```
 
 ## Config
 
-| Option        | Description                          |
-|---------------|--------------------------------------|
-| `levels`      | Enable/disable per level             |
-| `useColors`   | ANSI colors on/off                   |
-| `useLevels`   | Show level label before message      |
-| `useSymbols`  | Use symbols (x, !, i, ✓, d) or text  |
-| `useTimestamp` | ISO timestamp before message      |
+| Option         | Description                            |
+|----------------|----------------------------------------|
+| `levels`      | Enable/disable per level               |
+| `useColors`   | ANSI colors on/off                     |
+| `useLevels`   | Show level label before message        |
+| `useSymbols` | Use symbols (x, !, i, ✓, d) or text   |
+| `useTimestamp`| ISO timestamp before message           |
 
 ## Exports
 
-- `EzLog` – logger class  
-- `log` – default instance (debug off when `ENV=production`)  
-- `create_error_handler(is_http_error=..., get_method=..., get_url=...)` – for router error callbacks  
-- Types: `LogLevel`, `LogColors`, `EzlogConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`
+- `EzLog` – logger class (create instances yourself)
+- `create_error_handler(is_http_error=..., get_method=..., get_url=...)` – for router error callbacks
+- Types: `LogLevel`, `LogColors`, `EzlogConfig`, `LevelsConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`
