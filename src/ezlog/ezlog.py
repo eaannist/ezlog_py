@@ -1,18 +1,27 @@
 """
 EzLog: simple, performant logging with ANSI colors.
-Mirrors ezlog (TypeScript) API: 5 levels, short aliases, safe serialization.
+Mirrors ezlog (TypeScript) API: 5 levels (error, warn, info, success, debug).
+Integrates with stdlib logging internally via init(); no NOTSET/CRITICAL.
 """
 from __future__ import annotations
 
 import json
-import os
+import logging
 import re
 import sys
 import traceback
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from ezlog.types import EzlogConfig, LevelConfig, LogLevel
+
+# Stdlib level -> ezlog level. We do not use NOTSET or CRITICAL (CRITICAL -> error).
+_STDLIB_LEVEL_MAP = {
+    logging.DEBUG: "debug",
+    logging.INFO: "info",
+    logging.WARNING: "warn",
+    logging.ERROR: "error",
+}
 
 # Compiled regex for stack line formatting (path:line:col).
 _STACK_PATH_LINE_RE = re.compile(r"(\(?)([^\s()]+):(\d+):(\d+)(\)?)")
@@ -351,69 +360,24 @@ class EzLog:
         return self._colors["white"]
 
 
-# --- create_error_handler (uses internal logger, not exported as "log") ---
+class _EzLogHandler(logging.Handler):
+    """Internal handler: forwards stdlib LogRecords to EzLog. Skips NOTSET; CRITICAL -> error."""
 
-_IS_PRODUCTION = os.environ.get("ENV", "").lower() == "production"
+    def __init__(self, ezlog: EzLog) -> None:
+        super().__init__()
+        self._ezlog = ezlog
 
-_log = EzLog(
-    {
-        "levels": {
-            "error": True,
-            "warn": True,
-            "info": True,
-            "success": True,
-            "debug": not _IS_PRODUCTION,
-        },
-        "useColors": True,
-        "useLevels": True,
-        "useSymbols": True,
-        "useTimestamp": True,
-    }
-)
-
-
-def _default_is_http_error(err: Any) -> bool:
-    """True if err has status_code or statusCode (common HTTP error pattern)."""
-    return hasattr(err, "status_code") or hasattr(err, "statusCode")
-
-
-def _default_status_code(err: Any) -> int:
-    """Extract status code from error (status_code or statusCode)."""
-    return getattr(err, "status_code", None) or getattr(err, "statusCode", 500)
-
-
-def create_error_handler(
-    *,
-    is_http_error: Callable[[Any], bool] | None = None,
-    get_method: Callable[[Any], str] | None = None,
-    get_url: Callable[[Any], str] | None = None,
-) -> Callable[[Any, Any], None]:
-    """
-    Create error handler for router on_error callback.
-    Logs by level: 5xx -> error, 4xx -> warn, else -> info.
-    """
-    is_http = is_http_error or _default_is_http_error
-    get_m = get_method or (
-        lambda req: getattr(req, "method", getattr(req, "METHOD", "?"))
-    )
-    get_u = get_url or (
-        lambda req: getattr(req, "url", getattr(req, "path", "?"))
-    )
-
-    def handler(err: Any, request: Any = None) -> None:
-        if request is None:
-            method, url = "?", "?"
-        else:
-            method, url = get_m(request), get_u(request)
-        if is_http(err):
-            code = _default_status_code(err)
-            if code >= 500:
-                _log.e(f"[{method}] {url} - {code}", err)
-            elif code >= 400:
-                _log.w(f"[{method}] {url} - {code}", err)
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.levelno == logging.NOTSET:
+            return
+        level_name = _STDLIB_LEVEL_MAP.get(record.levelno)
+        if level_name is None:
+            level_name = "error"  # CRITICAL and any unknown -> error
+        try:
+            msg = self.format(record)
+            if record.exc_info and record.exc_info[1] is not None:
+                self._ezlog._log(level_name, msg, record.exc_info[1])
             else:
-                _log.i(f"[{method}] {url} - {code}", err)
-        else:
-            _log.e(f"[{method}] {url} - Unhandled error", err)
-
-    return handler
+                self._ezlog._log(level_name, msg)
+        except Exception:  # noqa: BLE001
+            self.handleError(record)

@@ -1,6 +1,8 @@
-"""Tests for EzLog (mirrors ezlog.test.ts)."""
+"""Tests for EzLog (mirrors ezlog.test.ts) and init()."""
+import logging
 from datetime import datetime
 
+import ezlog
 from ezlog import EzLog
 
 
@@ -192,3 +194,20 @@ class TestEzLogEdgeCases:
         logger = EzLog({"useColors": False, "useTimestamp": False})
         logger.info(None)
         assert True  # no throw
+
+
+class TestInit:
+    """init() - two settings, stdlib wiring."""
+
+    def test_init_sets_log_and_wires_stdlib(self) -> None:
+        ezlog.init(use_colors=False, use_timestamp=False)
+        assert ezlog.log is not None
+        logging.info("Test after init")
+        assert True  # no throw
+
+    def test_init_accepts_two_settings(self) -> None:
+        ezlog.init(use_colors=True, use_timestamp=False)
+        assert ezlog.log is not None
+        cfg = ezlog.log.get_config()
+        assert cfg.get("useColors") is True
+        assert cfg.get("useTimestamp") is False
