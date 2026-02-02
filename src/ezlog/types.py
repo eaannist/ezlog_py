@@ -1,4 +1,4 @@
-"""Type definitions for ezlog_py (mirrors ezlog TypeScript API)."""
+"""Type definitions for ezlog (mirrors ezlog TypeScript API)."""
 from typing import Any, Callable, Literal, TypedDict
 
 LogLevel = Literal["error", "warn", "info", "success", "debug"]

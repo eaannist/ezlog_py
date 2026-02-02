@@ -13,8 +13,12 @@ dependencies = []
 dev = ["pytest>=8.0.0"]
 
 [project.scripts]
-ezlog-py = "ezlog_py:main"
+ezlog-py = "ezlog:main"
 
 [build-system]
 requires = ["uv_build>=0.9.27,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "ezlog"

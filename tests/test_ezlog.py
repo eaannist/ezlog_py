@@ -1,7 +1,7 @@
 """Tests for EzLog (mirrors ezlog.test.ts)."""
 from datetime import datetime
 
-from ezlog_py import EzLog
+from ezlog import EzLog
 
 
 class TestEzLogBasicLogging:

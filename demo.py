@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-ezlog_py demo: configuration, usage, and showcase.
-Run: uv run python demo.py  or  python -m ezlog_py (then use ezlog-py CLI)
+ezlog demo: configuration, usage, and showcase.
+Run: uv run python demo.py  or  ezlog-py (CLI)
 """
 from datetime import datetime
 from typing import Any
 
-from ezlog_py import EzLog, create_error_handler, log
+from ezlog import EzLog, create_error_handler
 
 
 def _sep(title: str) -> None:
@@ -14,8 +14,9 @@ def _sep(title: str) -> None:
 
 
 def demo_default_log() -> None:
-    """Use the global log instance (debug off when ENV=production)."""
+    """Default logger instance (create your own EzLog())."""
     _sep("1. Default log instance")
+    log = EzLog()
     log.success("Application started")
     log.info("Environment: dev")
     log.warn("Rate limit approaching")
@@ -143,7 +144,7 @@ def demo_edge_cases() -> None:
 
 
 def main() -> None:
-    print("\n  ezlog_py demo – configuration, usage, showcase\n")
+    print("\n  ezlog demo – configuration, usage, showcase\n")
     demo_default_log()
     demo_short_aliases()
     demo_custom_configuration()
