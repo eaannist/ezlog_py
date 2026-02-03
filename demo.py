@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ezlog import COLOR_CODES, EzLog, init
+from ezlog import COLOR_CODES, EzLog
 from ezlog.defaults import DEFAULT_COLORS, DEFAULT_TEXTS, DEFAULT_SYMBOLS_FALLBACK
 
 
@@ -21,7 +21,7 @@ def main() -> None:
     # 1. Create logger (wires to stdlib automatically)
     # -------------------------------------------------------------------------
     _sep("1. Create logger – wires to stdlib automatically")
-    log = EzLog(use_colors=True, use_timestamp=True)
+    log = EzLog()
     log.info("Single EzLog() call wires itself to logging.getLogger()")
     log.info("From now on, logging.info(), logging.error(), etc. use ezlog formatting")
 
@@ -156,28 +156,18 @@ def main() -> None:
     custom.debug("This is disabled and will not print")
 
     # -------------------------------------------------------------------------
-    # 14. init() and ezlog.log (global logger)
+    # 14. get_config() – inspect current config
     # -------------------------------------------------------------------------
-    _sep("14. init() – global ezlog.log")
-    init(use_colors=True, use_timestamp=False)
-    import ezlog as ez
-
-    ez.log.i("Use ezlog.log after init()")
-    ez.log.s("Same API as EzLog() instance")
-
-    # -------------------------------------------------------------------------
-    # 15. get_config() – inspect current config
-    # -------------------------------------------------------------------------
-    _sep("15. get_config() – inspect current config")
+    _sep("14. get_config() – inspect current config")
     cfg = log.get_config()
     print("Current config (no consoleFn in levels):")
     print(json.dumps({k: v for k, v in cfg.items() if k == "levels"}, indent=2))
     print("Flags:", {k: cfg.get(k) for k in ("useColors", "useLevels", "useSymbols", "timestamp")})
 
     # -------------------------------------------------------------------------
-    # 16. Defaults (DEFAULT_TEXTS, DEFAULT_COLORS, DEFAULT_SYMBOLS_FALLBACK)
+    # 15. Defaults (DEFAULT_TEXTS, DEFAULT_COLORS, DEFAULT_SYMBOLS_FALLBACK)
     # -------------------------------------------------------------------------
-    _sep("16. Defaults – DEFAULT_TEXTS, DEFAULT_COLORS, DEFAULT_SYMBOLS_FALLBACK")
+    _sep("15. Defaults – DEFAULT_TEXTS, DEFAULT_COLORS, DEFAULT_SYMBOLS_FALLBACK")
     print("DEFAULT_TEXTS:", DEFAULT_TEXTS)
     print("DEFAULT_COLORS:", DEFAULT_COLORS)
     print("DEFAULT_SYMBOLS_FALLBACK (default/fallback per level):")
@@ -187,9 +177,9 @@ def main() -> None:
         print(f"  {level}: default={d}, fallback={f}")
 
     # -------------------------------------------------------------------------
-    # 17. Multiple loggers (different configs)
+    # 16. Multiple loggers (different configs)
     # -------------------------------------------------------------------------
-    _sep("17. Multiple loggers (different configs)")
+    _sep("16. Multiple loggers (different configs)")
     dev = EzLog({"useColors": True})
     prod = EzLog({"useColors": False, "timestamp": {"color": "as_levels"}, "levels": {"debug": False}})
     dev.d("Dev logger: debug enabled")

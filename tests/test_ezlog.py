@@ -1,11 +1,10 @@
-"""Comprehensive tests for EzLog, init(), defaults, and stdlib integration."""
+"""Comprehensive tests for EzLog, defaults, and stdlib integration."""
 import io
 import logging
 import sys
 from datetime import datetime
 from typing import Any
 
-import ezlog
 from ezlog import EzLog
 from ezlog.defaults import (
     DEFAULT_COLORS,
@@ -54,7 +53,7 @@ class TestEzLogBasicLogging:
         assert callable(logger.c)
 
     def test_all_levels_accept_multiple_args(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.debug("a", "b", 1)
         logger.info("x", {"k": "v"})
         logger.success("ok")
@@ -82,7 +81,7 @@ class TestEzLogLevelConfiguration:
                     "critical": False,
                 },
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
             }
         )
         logger.info("This should not log")
@@ -103,7 +102,7 @@ class TestEzLogLevelConfiguration:
                     "critical": True,
                 },
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
             }
         )
         logger.error("Error message")
@@ -112,7 +111,7 @@ class TestEzLogLevelConfiguration:
         assert True  # no throw
 
     def test_default_levels_include_all_six_levels(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         config = logger.get_config()
         levels = config.get("levels") or {}
         for level in _LOG_LEVELS:
@@ -134,7 +133,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "useSymbols": True,
                 "useLevels": True,
             }
@@ -146,7 +145,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "useSymbols": False,
                 "useLevels": True,
             }
@@ -158,7 +157,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "useSymbols": True,
             }
         )
@@ -170,7 +169,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
             }
         )
         config = logger.get_config()
@@ -179,7 +178,7 @@ class TestEzLogConfiguration:
         assert "levels" in config
 
     def test_get_config_levels_have_level_config_shape_no_console_fn(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         config = logger.get_config()
         levels = config.get("levels")
         assert levels is not None
@@ -196,7 +195,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "levels": {
                     "info": {
                         "symbol": "N",
@@ -221,7 +220,7 @@ class TestEzLogConfiguration:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "useLevels": True,
                 "useSymbols": True,
             }
@@ -232,18 +231,14 @@ class TestEzLogConfiguration:
         assert cfg.get("useLevels") is True
         assert cfg.get("useSymbols") is True
 
-    def test_init_with_kwargs_override_config(self) -> None:
-        logger = EzLog(
-            {"useColors": True, "useTimestamp": True},
-            use_colors=False,
-            use_timestamp=False,
-        )
+    def test_config_dict_sets_flags(self) -> None:
+        logger = EzLog({"useColors": False, "timestamp": False})
         cfg = logger.get_config()
         assert cfg.get("useColors") is False
         assert cfg.get("timestamp") is False
 
     def test_configure_disables_level_at_runtime(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.configure({"levels": {"info": False}})
         cfg = logger.get_config()
         assert cfg.get("levels", {}).get("info") is False
@@ -251,7 +246,7 @@ class TestEzLogConfiguration:
         assert True  # no throw
 
     def test_configure_overrides_level_config_at_runtime(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.configure(
             {
                 "levels": {
@@ -302,35 +297,35 @@ class TestEzLogObjectFormatting:
     """EzLog - Object Formatting."""
 
     def test_should_format_plain_objects_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info({"id": 1, "name": "Test"})
         assert True  # no throw
 
     def test_should_format_error_objects_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.error(ValueError("Test error"))
         assert True  # no throw
 
     def test_should_format_date_objects_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         date = datetime(2024, 1, 1, 0, 0, 0)
         logger.info(date)
         assert True  # no throw
 
     def test_should_handle_circular_references_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         obj: dict[str, Any] = {"name": "Test"}
         obj["self"] = obj
         logger.info(obj)
         assert True  # no throw
 
     def test_should_format_arrays_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info([1, 2, 3])
         assert True  # no throw
 
     def test_should_format_nested_structures(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info(
             {
                 "users": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
@@ -340,7 +335,7 @@ class TestEzLogObjectFormatting:
         assert True  # no throw
 
     def test_should_handle_exception_with_traceback(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         try:
             raise RuntimeError("Intentional")
         except RuntimeError as e:
@@ -384,17 +379,17 @@ class TestEzLogEdgeCases:
     """EzLog - Edge Cases."""
 
     def test_should_not_throw_when_no_arguments_provided(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info()
         assert True  # no throw
 
     def test_should_handle_multiple_arguments_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info("Message 1", "Message 2", {"key": "value"})
         assert True  # no throw
 
     def test_should_handle_none_without_throwing(self) -> None:
-        logger = EzLog({"useColors": False, "useTimestamp": False})
+        logger = EzLog({"useColors": False, "timestamp": False})
         logger.info(None)
         assert True  # no throw
 
@@ -414,7 +409,7 @@ class TestEzLogEdgeCases:
         logger = EzLog(
             {
                 "useColors": False,
-                "useTimestamp": False,
+                "timestamp": False,
                 "levels": {"info": {"color": "blue"}},
             }
         )
@@ -459,60 +454,43 @@ class TestDefaultsConstants:
 # --- Stdlib integration ---
 
 
-class TestInit:
-    """init() - global log and stdlib wiring."""
-
-    def test_init_sets_log_and_wires_stdlib(self) -> None:
-        ezlog.init(use_colors=False, use_timestamp=False)
-        assert ezlog.log is not None
-        logging.info("Test after init")
-        assert True  # no throw
-
-    def test_init_accepts_two_settings(self) -> None:
-        ezlog.init(use_colors=True, use_timestamp=False)
-        assert ezlog.log is not None
-        cfg = ezlog.log.get_config()
-        assert cfg.get("useColors") is True
-        assert cfg.get("timestamp") is False
-
-
 class TestEzLogWiresStdlib:
     """EzLog() wires itself to stdlib on construction."""
 
     def test_ezlog_construction_wires_stdlib(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         assert log is not None
         logging.info("Test after EzLog()")
         assert True  # no throw
 
-    def test_ezlog_accepts_use_colors_use_timestamp_kwargs(self) -> None:
-        log = EzLog(use_colors=True, use_timestamp=False)
+    def test_ezlog_accepts_config_dict(self) -> None:
+        log = EzLog({"useColors": True, "timestamp": False})
         cfg = log.get_config()
         assert cfg.get("useColors") is True
         assert cfg.get("timestamp") is False
 
     def test_stdlib_debug_maps_to_ezlog_debug(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         logging.debug("Stdlib debug")
         assert True  # no throw
 
     def test_stdlib_info_maps_to_ezlog_info(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         logging.info("Stdlib info")
         assert True  # no throw
 
     def test_stdlib_warning_maps_to_ezlog_warn(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         logging.warning("Stdlib warning")
         assert True  # no throw
 
     def test_stdlib_error_maps_to_ezlog_error(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         logging.error("Stdlib error")
         assert True  # no throw
 
     def test_stdlib_critical_maps_to_ezlog_critical(self) -> None:
-        log = EzLog(use_colors=False, use_timestamp=False)
+        log = EzLog({"useColors": False, "timestamp": False})
         logging.critical("Stdlib critical")
         assert True  # no throw
 
@@ -528,7 +506,7 @@ class TestEzLogOutputBehavior:
         old_stdout = sys.stdout
         sys.stdout = buf
         try:
-            log = EzLog({"useColors": False, "useTimestamp": False})
+            log = EzLog({"useColors": False, "timestamp": False})
             log.info("Hello world")
             out = buf.getvalue()
         finally:
@@ -540,7 +518,7 @@ class TestEzLogOutputBehavior:
         old_stderr = sys.stderr
         sys.stderr = buf
         try:
-            log = EzLog({"useColors": False, "useTimestamp": False})
+            log = EzLog({"useColors": False, "timestamp": False})
             log.error("Error world")
             err = buf.getvalue()
         finally:
@@ -555,7 +533,7 @@ class TestEzLogOutputBehavior:
             log = EzLog(
                 {
                     "useColors": False,
-                    "useTimestamp": False,
+                    "timestamp": False,
                     "levels": {"info": False},
                 }
             )

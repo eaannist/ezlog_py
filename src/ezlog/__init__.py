@@ -1,7 +1,7 @@
 """
 ezlog: simple, performant logging with ANSI colors (Python port of ezlog).
-Install as ezlog-py from PyPI. Create log = EzLog(use_colors=..., use_timestamp=...);
-it wires itself to stdlib logging. 6 levels: debug, info, success, warn, error, critical.
+Install as ezlog-py from PyPI. Create log = EzLog() or EzLog(config).
+Wires itself to stdlib logging. 6 levels: debug, info, success, warn, error, critical.
 """
 from __future__ import annotations
 
@@ -29,8 +29,6 @@ from ezlog.types import (
 
 __all__ = [
     "EzLog",
-    "init",
-    "log",
     "LogLevel",
     "LogColors",
     "TimestampColor",
@@ -49,24 +47,10 @@ __all__ = [
     "DEFAULT_TIMESTAMP_COLOR",
 ]
 
-# Set by init(); optional, use log = EzLog(...) for direct assignment.
-log: EzLog | None = None
-
-
-def init(
-    *,
-    use_colors: bool = True,
-    use_timestamp: bool = True,
-) -> EzLog:
-    """Create EzLog (wires to stdlib) and set ezlog.log. Optional; you can use log = EzLog(...) directly."""
-    global log
-    log = EzLog(use_colors=use_colors, use_timestamp=use_timestamp)
-    return log
-
 
 def main() -> None:
-    """CLI entry point: log = EzLog() + short demo."""
-    log_instance = EzLog(use_colors=True, use_timestamp=True)
+    """CLI entry point: EzLog() + short demo."""
+    log_instance = EzLog()
     log_instance.success("Application started")
     log_instance.info("Environment: dev")
     log_instance.w("Warning message")

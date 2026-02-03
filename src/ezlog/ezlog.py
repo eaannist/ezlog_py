@@ -111,22 +111,9 @@ def _merge_timestamp(
 
 
 class EzLog:
-    def __init__(
-        self,
-        config: EzlogConfig | None = None,
-        *,
-        use_colors: bool | None = None,
-        use_timestamp: bool | None = None,
-    ) -> None:
+    def __init__(self, config: EzlogConfig | None = None) -> None:
         default_levels: LevelsConfig = _get_default_levels()
         cfg = dict(config) if config else {}
-        if use_colors is not None:
-            cfg["useColors"] = use_colors
-        if use_timestamp is not None:
-            cfg["timestamp"] = False if use_timestamp is False else DEFAULT_TIMESTAMP
-        # Backward compat: useTimestamp -> timestamp
-        if "useTimestamp" in cfg and "timestamp" not in cfg:
-            cfg["timestamp"] = False if cfg["useTimestamp"] is False else DEFAULT_TIMESTAMP
         self._config = {
             "levels": _merge_levels(default_levels, cfg.get("levels")),
             "useColors": cfg.get("useColors", USE_COLORS_DEFAULT),

@@ -22,14 +22,14 @@ Create a logger; it wires itself to stdlib logging. Use `log.i()`, `log.success(
 ```python
 from ezlog import EzLog
 
-log = EzLog(use_colors=True, use_timestamp=True)
+log = EzLog()  # or EzLog({"useColors": True, "timestamp": False})
 
 # Direct ezlog (includes .success() level)
 log.success("Application started")
 log.i("Hello")
-log.w("Warning")
-log.e("Error")
-log.d("Debug")
+log.w("Oops")
+log.e("OMG")
+log.d("hmmm..")
 
 # Stdlib logging (wired internally; same formatting)
 import logging
@@ -37,47 +37,58 @@ logging.info("From stdlib")
 logging.error("Failed", exc_info=True)
 ```
 
-You can pass a config dict: `EzLog({"useColors": True, "timestamp": False})` or mix: `EzLog({"useColors": True}, use_timestamp=False)`.
-
 ## Configuration
 
-Config is an `EzlogConfig` (partial updates supported):
-
-- **useColors**, **useLevels**, **useSymbols** – booleans
-- **timestamp** – `False` to disable, or `TimestampConfig`: **format** (str, e.g. `"%Y-%m-%d %H:%M:%S"`), **color** (`"as_levels"` to use level color, or any `LogColors`)
-- **levels** – per-level config: each level is either a `LevelConfig` or `False` (to disable)
-
-`LevelConfig` has **symbol**, **text**, **color** (no `consoleFn`; output target is fixed by ezlog). You can override defaults or disable a level:
-
 ```python
+# Example: custom config (partial overrides)
 log = EzLog({
     "useColors": True,
+    "useLevels": True,
+    "useSymbols": False,
+    "timestamp": {
+        "color": "white",
+        "format": "%Y-%m-%d %H:%M:%S",
+    },
     "levels": {
-        "info": {"symbol": "I", "text": "Info", "color": "light-cyan"},
-        "debug": False,
+        "info": {"text": "Information"},
+        "debug": False,      # disable debug in production
+        "critical": False,   # or disable a level entirely
     },
 })
 ```
 
-Constants and defaults live in `ezlog.defaults` (`DEFAULT_SYMBOLS_FALLBACK`, `DEFAULT_TEXTS`, `DEFAULT_COLORS`, `COLOR_CODES`, etc.); types in `ezlog.types`.
+Each option has a default and is optional.
 
-## init (optional)
+- **useColors** : boolean – Enable ANSI colors. Default `True`.
+- **useLevels** : boolean – Show level label/symbol in output. Default `True`.
+- **useSymbols** : boolean – Use symbol for level (if `False`, use text label). Default `True`.
+- **timestamp** : `TimestampConfig` or `False` – Configure timestamp, or set to `False` to disable.
+- **levels** : `LevelsConfig` – Keys: `debug`, `info`, `success`, `warn`, `error`, `critical`. Each value is a `LevelConfig` (partial override) or `False` to disable that level.
 
-`ezlog.init(use_colors=..., use_timestamp=...)` creates an EzLog (wired to stdlib) and sets `ezlog.log`. Use it if you prefer `ezlog.log.i("...")` instead of keeping your own `log` variable.
+#### `LevelConfig`
+
+- **color** : `LogColors` – Level color (e.g. `"light-red"`, `"cyan"`).
+- **text** : str – Level label (e.g. `"INFO"`, `"Error"`).
+- **symbol** : str – Level symbol; validated with a safe fallback when the system doesn’t support the character.
+
+#### `TimestampConfig`
+
+- **format** : str – strftime format (e.g. `"%Y-%m-%d %H:%M:%S"`). Default from `ezlog.defaults.DEFAULT_TIMESTAMP_FORMAT`.
+- **color** : `LogColors` or `"as_levels"` – Timestamp color. `"as_levels"` uses the same color as the log level. Default `"as_levels"`.
 
 ## Levels
 
-Ezlog has 6 levels (severity order): **debug**, **info**, **success**, **warn**, **error**, **critical**.  
-Each has a default symbol and color (overridable). Stdlib DEBUG/INFO/WARNING/ERROR/CRITICAL map to ezlog; NOTSET is skipped.
+- **Order (severity)**: `debug` → `info` → `success` → `warn` → `error` → `critical`.
+- **Short aliases**: `d`, `i`, `s`, `w`, `e`, `c`.
+- **Stdlib mapping**: `logging.DEBUG` → debug, `logging.INFO` → info, `logging.WARNING` → warn, `logging.ERROR` → error, `logging.CRITICAL` → critical. `NOTSET` is skipped.
+- Default symbols and colors are in `ezlog.defaults` (`DEFAULT_TEXTS`, `DEFAULT_COLORS`, `DEFAULT_SYMBOLS_FALLBACK`).
 
 ## Color properties
 
-When colors are enabled, the logger exposes: `log.red`, `log.yellow`, `log.cyan`, `log.green`, `log.magenta`, `log.white`, `log.gray`, `log.reset`. Use them for custom formatted messages (use `log.reset` after colored segments).
+When **useColors** is enabled, the logger exposes: `log.red`, `log.yellow`, `log.cyan`, `log.green`, `log.magenta`, `log.white`, `log.gray`, `log.reset`. Use them for custom formatted output; end colored segments with `log.reset`.
 
 ## Exports
 
-- **EzLog**(config?, use_colors?, use_timestamp?) – create logger (wires to stdlib on construction)
-- **init**(use_colors=..., use_timestamp=...) – optional; sets `ezlog.log`
-- **log** – set by `init()`; use after `ezlog.init()`
-- **Types**: `LogLevel`, `LogColors`, `TimestampColor`, `TimestampConfig`, `EzlogConfig`, `LevelsConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`
-- **Constants** (from `ezlog.defaults`): `COLOR_CODES`, `RESET`, `DEFAULT_SYMBOLS_FALLBACK`, `DEFAULT_TEXTS`, `DEFAULT_COLORS`, `DEFAULT_TIMESTAMP_FORMAT`, `DEFAULT_TIMESTAMP_COLOR`, `DEFAULT_TIMESTAMP`
+- **EzLog**(config?) – Create logger (wires to stdlib on construction). Config optional: `EzLog()` or `EzLog({"useColors": True, "timestamp": False})`.
+- **Types** – `LogLevel`, `LogColors`, `TimestampColor`, `TimestampConfig`, `EzlogConfig`, `LevelsConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`.
+- **Constants** (from `ezlog.defaults`) – `COLOR_CODES`, `RESET`, `DEFAULT_SYMBOLS_FALLBACK`, `DEFAULT_TEXTS`, `DEFAULT_COLORS`, `DEFAULT_TIMESTAMP_FORMAT`, `DEFAULT_TIMESTAMP_COLOR`, `DEFAULT_TIMESTAMP`.
