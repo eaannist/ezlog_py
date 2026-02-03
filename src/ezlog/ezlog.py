@@ -1,7 +1,7 @@
 """
 EzLog: simple, performant logging with ANSI colors.
-Mirrors ezlog (TypeScript) API: 5 levels (error, warn, info, success, debug).
-Integrates with stdlib logging internally via init(); no NOTSET/CRITICAL.
+All levels: debug, info, success, warn, error, critical (NOTSET skipped).
+Wires itself to stdlib logging; constants in defaults.py, types in types.py.
 """
 from __future__ import annotations
 
@@ -11,22 +11,49 @@ import re
 import sys
 import traceback
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from ezlog.types import EzlogConfig, LevelConfig, LogLevel
+from ezlog.defaults import (
+    COLOR_CODES,
+    DEFAULT_COLORS,
+    DEFAULT_SYMBOLS_FALLBACK,
+    DEFAULT_TIMESTAMP,
+    DEFAULT_TIMESTAMP_FORMAT,
+    DEFAULT_TEXTS,
+    USE_COLORS_DEFAULT,
+    USE_LEVELS_DEFAULT,
+    USE_SYMBOLS_DEFAULT,
+)
+from ezlog.types import (
+    EzlogConfig,
+    LevelConfig,
+    LevelsConfig,
+    LogLevel,
+    TimestampConfig,
+)
 
-# Stdlib level -> ezlog level. We do not use NOTSET or CRITICAL (CRITICAL -> error).
+# Stdlib level -> ezlog level. NOTSET skipped.
 _STDLIB_LEVEL_MAP = {
     logging.DEBUG: "debug",
     logging.INFO: "info",
     logging.WARNING: "warn",
     logging.ERROR: "error",
+    logging.CRITICAL: "critical",
 }
 
 # Compiled regex for stack line formatting (path:line:col).
 _STACK_PATH_LINE_RE = re.compile(r"(\(?)([^\s()]+):(\d+):(\d+)(\)?)")
 _STACK_FILE_RE = re.compile(r"^\s*File\s*")
 _STACK_AT_RE = re.compile(r"^\s*at\s*")
+
+_LOG_LEVELS: tuple[LogLevel, ...] = (
+    "debug",
+    "info",
+    "success",
+    "warn",
+    "error",
+    "critical",
+)
 
 
 def _safe_symbol(s: str, fallback: str = "?") -> str:
@@ -39,98 +66,114 @@ def _safe_symbol(s: str, fallback: str = "?") -> str:
         return fallback
 
 
-_DEFAULT_CONFIG: EzlogConfig = {
-    "levels": {
-        "error": True,
-        "warn": True,
-        "info": True,
-        "success": True,
-        "debug": True,
-    },
-    "useColors": True,
-    "useLevels": True,
-    "useSymbols": True,
-    "useTimestamp": True,
-}
+def _get_default_levels() -> LevelsConfig:
+    """Build LevelsConfig from DEFAULT_TEXTS, DEFAULT_COLORS, DEFAULT_SYMBOLS_FALLBACK."""
+    return {
+        level: {
+            "symbol": DEFAULT_SYMBOLS_FALLBACK[level]["default"],
+            "text": DEFAULT_TEXTS[level],
+            "color": DEFAULT_COLORS[level],
+        }
+        for level in _LOG_LEVELS
+    }
 
 
 def _merge_levels(
-    base: dict[str, bool], override: dict[str, bool] | None
-) -> dict[str, bool]:
-    out = dict(base)
-    if override:
-        out.update(override)
-    return out
+    default_levels: LevelsConfig, user_levels: LevelsConfig | None
+) -> LevelsConfig:
+    """Merge default level config with user overrides. Level can be LevelConfig or False."""
+    merged: LevelsConfig = {}
+    for level in _LOG_LEVELS:
+        if user_levels and level in user_levels and user_levels[level] is False:
+            merged[level] = False
+            continue
+        base: LevelConfig | False = default_levels.get(level)
+        override = (user_levels or {}).get(level) if user_levels else None
+        if isinstance(base, dict) and base:
+            level_cfg: LevelConfig = dict(base)
+            if isinstance(override, dict) and override:
+                level_cfg.update({k: v for k, v in override.items() if v is not None})
+            merged[level] = level_cfg
+        elif isinstance(override, dict) and override:
+            merged[level] = dict(override)
+    return merged
+
+
+def _merge_timestamp(
+    default_ts: TimestampConfig, user_ts: TimestampConfig | Literal[False] | None
+) -> TimestampConfig | Literal[False]:
+    """Merge default timestamp config with user override. False disables timestamp."""
+    if user_ts is False:
+        return False
+    if not user_ts:
+        return dict(default_ts)
+    return {**default_ts, **{k: v for k, v in user_ts.items() if v is not None}}
 
 
 class EzLog:
-    """
-    Simple, performant, type-safe logging with ANSI colors.
-    Levels: error, warn, info, success, debug. Short aliases: e, w, i, s, d.
-    """
-
-    def __init__(self, config: EzlogConfig | None = None) -> None:
-        cfg = config or {}
-        self._config: EzlogConfig = {
-            "levels": _merge_levels(
-                _DEFAULT_CONFIG.get("levels", {}),  # type: ignore[arg-type]
-                cfg.get("levels"),
-            ),
-            "useColors": cfg.get("useColors", _DEFAULT_CONFIG.get("useColors", True)),
-            "useLevels": cfg.get("useLevels", _DEFAULT_CONFIG.get("useLevels", True)),
-            "useSymbols": cfg.get("useSymbols", _DEFAULT_CONFIG.get("useSymbols", True)),
-            "useTimestamp": cfg.get(
-                "useTimestamp", _DEFAULT_CONFIG.get("useTimestamp", True)
+    def __init__(
+        self,
+        config: EzlogConfig | None = None,
+        *,
+        use_colors: bool | None = None,
+        use_timestamp: bool | None = None,
+    ) -> None:
+        default_levels: LevelsConfig = _get_default_levels()
+        cfg = dict(config) if config else {}
+        if use_colors is not None:
+            cfg["useColors"] = use_colors
+        if use_timestamp is not None:
+            cfg["timestamp"] = False if use_timestamp is False else DEFAULT_TIMESTAMP
+        # Backward compat: useTimestamp -> timestamp
+        if "useTimestamp" in cfg and "timestamp" not in cfg:
+            cfg["timestamp"] = False if cfg["useTimestamp"] is False else DEFAULT_TIMESTAMP
+        self._config = {
+            "levels": _merge_levels(default_levels, cfg.get("levels")),
+            "useColors": cfg.get("useColors", USE_COLORS_DEFAULT),
+            "useLevels": cfg.get("useLevels", USE_LEVELS_DEFAULT),
+            "useSymbols": cfg.get("useSymbols", USE_SYMBOLS_DEFAULT),
+            "timestamp": _merge_timestamp(
+                DEFAULT_TIMESTAMP,
+                cfg.get("timestamp") if "timestamp" in cfg else None,
             ),
         }
         self._colors = self._build_colors()
-        self._level_config = self._build_level_config()
+        self._level_config: dict[str, dict[str, Any]] = self._build_level_config()
+        _wire_to_stdlib(self)
 
     def _build_colors(self) -> dict[str, str]:
         use = self._config.get("useColors", True)
         return {
-            "red": "\x1b[31m" if use else "",
-            "yellow": "\x1b[33m" if use else "",
-            "cyan": "\x1b[36m" if use else "",
-            "green": "\x1b[32m" if use else "",
-            "magenta": "\x1b[35m" if use else "",
-            "white": "\x1b[0m" if use else "",
+            **({k: (v if use else "") for k, v in COLOR_CODES.items()}),
         }
 
-    def _build_level_config(self) -> dict[str, LevelConfig]:
-        c = self._colors
-        return {
-            "error": {
-                "symbol": "x",
-                "text": "ERROR",
-                "color": c["red"],
-                "consoleFn": lambda s: print(s, file=sys.stderr),
-            },
-            "warn": {
-                "symbol": "!",
-                "text": "WARN",
-                "color": c["yellow"],
-                "consoleFn": lambda s: print(s, file=sys.stderr),
-            },
-            "info": {
-                "symbol": "i",
-                "text": "INFO",
-                "color": c["cyan"],
-                "consoleFn": lambda s: print(s),
-            },
-            "success": {
-                "symbol": _safe_symbol("✓", "+"),
-                "text": "SUCCESS",
-                "color": c["green"],
-                "consoleFn": lambda s: print(s),
-            },
-            "debug": {
-                "symbol": "d",
-                "text": "DEBUG",
-                "color": c["magenta"],
-                "consoleFn": lambda s: print(s),
-            },
-        }
+    def _build_level_config(self) -> dict[str, dict[str, Any]]:
+        levels = self._config.get("levels") or {}
+        out: dict[str, dict[str, Any]] = {}
+        _stderr = lambda s: print(s, file=sys.stderr)
+        _stdout = lambda s: print(s)
+        for level in _LOG_LEVELS:
+            lc = levels.get(level)
+            if lc is False:
+                continue
+            if not isinstance(lc, dict):
+                continue
+            color_name = lc.get("color", DEFAULT_COLORS.get(level, "white"))
+            color_code = self._colors.get(color_name, self._colors["reset"])
+            text = lc.get("text", DEFAULT_TEXTS.get(level, level))
+            raw_symbol = lc.get(
+                "symbol",
+                DEFAULT_SYMBOLS_FALLBACK.get(level, {}).get("default", "?"),
+            )
+            fallback = DEFAULT_SYMBOLS_FALLBACK.get(level, {}).get("fallback", "?")
+            symbol = _safe_symbol(raw_symbol or fallback, fallback)
+            out[level] = {
+                "symbol": symbol,
+                "text": text,
+                "color": color_code,
+                "consoleFn": _stderr if level in ("error", "warn", "critical") else _stdout,
+            }
+        return out
 
     def configure(self, config: EzlogConfig) -> None:
         """Update configuration at runtime."""
@@ -138,39 +181,52 @@ class EzLog:
             self._config["levels"] = _merge_levels(
                 self._config.get("levels") or {}, config["levels"]
             )
-        for key in ("useColors", "useLevels", "useSymbols", "useTimestamp"):
+        if "timestamp" in config:
+            self._config["timestamp"] = _merge_timestamp(
+                self._config.get("timestamp") or DEFAULT_TIMESTAMP,
+                config["timestamp"],
+            )
+        for key in ("useColors", "useLevels", "useSymbols"):
             if key in config and config[key] is not None:
                 self._config[key] = config[key]  # type: ignore[typeddict-unknown-key]
-        if "useColors" in config:
+        if "useColors" in config or "levels" in config:
             self._colors = self._build_colors()
             self._level_config = self._build_level_config()
 
     def get_config(self) -> EzlogConfig:
         """Return a copy of current config."""
+        ts = self._config.get("timestamp")
         return {
             "levels": dict(self._config.get("levels") or {}),
             "useColors": self._config.get("useColors", True),
             "useLevels": self._config.get("useLevels", True),
             "useSymbols": self._config.get("useSymbols", True),
-            "useTimestamp": self._config.get("useTimestamp", True),
+            "timestamp": False if ts is False else dict(ts or {}),
         }
 
-    def _get_timestamp(self, color: str) -> str:
-        if not self._config.get("useTimestamp", True):
+    def _get_timestamp(self, level: LogLevel) -> str:
+        if self._config.get("timestamp") is False:
             return ""
-        now = datetime.now().isoformat()[:19].replace("T", " ")
-        return f"[{color}{now}{self._colors['white']}] "
+        ts_cfg = self._config.get("timestamp") or {}
+        fmt = ts_cfg.get("format", DEFAULT_TIMESTAMP_FORMAT)
+        color_key = ts_cfg.get("color", "as_levels")
+        if color_key == "as_levels":
+            color_code = self._level_config[level]["color"]
+        else:
+            color_code = self._colors.get(color_key, self._colors["reset"])
+        now_str = datetime.now().strftime(fmt)
+        return f"[{color_code}{now_str}{self._colors['reset']}] "
 
     def _get_prefix(self, level: LogLevel) -> str:
         lc = self._level_config[level]
         display = lc["symbol"] if self._config.get("useSymbols", True) else lc["text"]
-        ts = self._get_timestamp(lc["color"])
+        ts = self._get_timestamp(level)
         if self._config.get("useLevels", True):
             return (
-                f"{self._colors['white']}{ts}"
-                f"[{lc['color']}{display}{self._colors['white']}] "
+                f"{self._colors['reset']}{ts}"
+                f"[{lc['color']}{display}{self._colors['reset']}] "
             )
-        return f"{self._colors['white']}{ts}"
+        return f"{self._colors['reset']}{ts}"
 
     def _safe_stringify(self, obj: Any, space: int | None = None) -> str:
         try:
@@ -232,42 +288,42 @@ class EzLog:
             trimmed = line.strip()
             if i == 0:
                 out_lines.append(
-                    f"{self._colors['white']}{self._colors['red']}"
-                    f"{trimmed}{self._colors['white']}"
+                    f"{self._colors['reset']}{self._colors['light-red']}"
+                    f"{trimmed}{self._colors['reset']}"
                 )
                 continue
             cleaned = _STACK_FILE_RE.sub("  at ", trimmed)
             cleaned = _STACK_AT_RE.sub("  at ", cleaned)
             highlighted = _STACK_PATH_LINE_RE.sub(
                 lambda m: f"{m.group(1)}{self._colors['cyan']}{m.group(2)}"
-                f"{self._colors['white']}:{self._colors['magenta']}{m.group(3)}"
-                f"{self._colors['white']}:{self._colors['magenta']}{m.group(4)}"
-                f"{self._colors['white']}{m.group(5)}",
+                f"{self._colors['reset']}:{self._colors['magenta']}{m.group(3)}"
+                f"{self._colors['reset']}:{self._colors['magenta']}{m.group(4)}"
+                f"{self._colors['reset']}{m.group(5)}",
                 cleaned,
             )
             out_lines.append(
-                f"  {self._colors['magenta']}at{self._colors['white']} {highlighted}"
+                f"  {self._colors['magenta']}at{self._colors['reset']} {highlighted}"
             )
         return "\n".join(out_lines)
 
     def _format_arg(self, arg: Any) -> str:
         if isinstance(arg, BaseException):
             parts = [
-                f"{self._colors['red']}{type(arg).__name__}"
-                f"{self._colors['white']}: {arg}"
+                f"{self._colors['light-red']}{type(arg).__name__}"
+                f"{self._colors['reset']}: {arg}"
             ]
             if getattr(arg, "code", None) is not None:
                 parts.append(
-                    f"{self._colors['cyan']}code{self._colors['white']}: {arg.code}"
+                    f"{self._colors['cyan']}code{self._colors['reset']}: {arg.code}"
                 )
             if getattr(arg, "status_code", None) is not None:
                 parts.append(
-                    f"{self._colors['cyan']}statusCode{self._colors['white']}: "
+                    f"{self._colors['cyan']}statusCode{self._colors['reset']}: "
                     f"{arg.status_code}"
                 )
             if getattr(arg, "statusCode", None) is not None:
                 parts.append(
-                    f"{self._colors['cyan']}statusCode{self._colors['white']}: "
+                    f"{self._colors['cyan']}statusCode{self._colors['reset']}: "
                     f"{arg.statusCode}"
                 )
             cause = getattr(arg, "__cause__", None)
@@ -278,7 +334,7 @@ class EzLog:
                     else str(cause)
                 )
                 parts.append(
-                    f"{self._colors['cyan']}cause{self._colors['white']}: {cstr}"
+                    f"{self._colors['cyan']}cause{self._colors['reset']}: {cstr}"
                 )
             tb = getattr(arg, "__traceback__", None)
             if tb is not None:
@@ -299,9 +355,11 @@ class EzLog:
 
     def _log(self, level: LogLevel, *args: Any) -> None:
         levels = self._config.get("levels") or {}
-        if not levels.get(level, True) or not args:
+        if levels.get(level) is False or not args:
             return
-        lc = self._level_config[level]
+        lc = self._level_config.get(level)
+        if not lc:
+            return
         msg = f"{self._get_prefix(level)}{self._format_args(*args)}"
         lc["consoleFn"](msg)
 
@@ -335,6 +393,12 @@ class EzLog:
     def d(self, *args: Any) -> None:
         self._log("debug", *args)
 
+    def critical(self, *args: Any) -> None:
+        self._log("critical", *args)
+
+    def c(self, *args: Any) -> None:
+        self._log("critical", *args)
+
     @property
     def green(self) -> str:
         return self._colors["green"]
@@ -359,9 +423,17 @@ class EzLog:
     def white(self) -> str:
         return self._colors["white"]
 
+    @property
+    def gray(self) -> str:
+        return self._colors["gray"]
+
+    @property
+    def reset(self) -> str:
+        return self._colors["reset"]
+
 
 class _EzLogHandler(logging.Handler):
-    """Internal handler: forwards stdlib LogRecords to EzLog. Skips NOTSET; CRITICAL -> error."""
+    """Forwards stdlib LogRecords to EzLog."""
 
     def __init__(self, ezlog: EzLog) -> None:
         super().__init__()
@@ -372,7 +444,7 @@ class _EzLogHandler(logging.Handler):
             return
         level_name = _STDLIB_LEVEL_MAP.get(record.levelno)
         if level_name is None:
-            level_name = "error"  # CRITICAL and any unknown -> error
+            level_name = "error"  # unknown levelno -> error
         try:
             msg = self.format(record)
             if record.exc_info and record.exc_info[1] is not None:
@@ -381,3 +453,13 @@ class _EzLogHandler(logging.Handler):
                 self._ezlog._log(level_name, msg)
         except Exception:  # noqa: BLE001
             self.handleError(record)
+
+
+def _wire_to_stdlib(ezlog_instance: EzLog) -> None:
+    """Register this EzLog as the handler for stdlib root logger (replaces any previous)."""
+    root = logging.getLogger()
+    for handler in list(root.handlers):
+        if type(handler).__name__ == "_EzLogHandler":
+            root.removeHandler(handler)
+    root.addHandler(_EzLogHandler(ezlog_instance))
+    root.setLevel(logging.DEBUG)

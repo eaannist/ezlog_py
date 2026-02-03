@@ -1,14 +1,20 @@
 """
 ezlog: simple, performant logging with ANSI colors (Python port of ezlog).
-Install as ezlog-py from PyPI. Import ezlog, call init(use_colors, use_timestamp),
-then use ezlog.log or stdlib logging; both go through ezlog formatting.
-5 levels: error, warn, info, success, debug (no NOTSET/CRITICAL).
+Install as ezlog-py from PyPI. Create log = EzLog(use_colors=..., use_timestamp=...);
+it wires itself to stdlib logging. 6 levels: debug, info, success, warn, error, critical.
 """
 from __future__ import annotations
 
-import logging
-
-from ezlog.ezlog import EzLog, _EzLogHandler
+from ezlog.defaults import (
+    COLOR_CODES,
+    DEFAULT_COLORS,
+    DEFAULT_SYMBOLS_FALLBACK,
+    DEFAULT_TIMESTAMP,
+    DEFAULT_TIMESTAMP_COLOR,
+    DEFAULT_TIMESTAMP_FORMAT,
+    DEFAULT_TEXTS,
+)
+from ezlog.ezlog import EzLog
 from ezlog.types import (
     ConsoleMethod,
     EzlogConfig,
@@ -17,6 +23,8 @@ from ezlog.types import (
     LogArgs,
     LogColors,
     LogLevel,
+    TimestampConfig,
+    TimestampColor,
 )
 
 __all__ = [
@@ -25,14 +33,23 @@ __all__ = [
     "log",
     "LogLevel",
     "LogColors",
+    "TimestampColor",
+    "TimestampConfig",
     "EzlogConfig",
     "LevelsConfig",
     "LevelConfig",
     "LogArgs",
     "ConsoleMethod",
+    "COLOR_CODES",
+    "DEFAULT_SYMBOLS_FALLBACK",
+    "DEFAULT_TEXTS",
+    "DEFAULT_COLORS",
+    "DEFAULT_TIMESTAMP",
+    "DEFAULT_TIMESTAMP_FORMAT",
+    "DEFAULT_TIMESTAMP_COLOR",
 ]
 
-# Set by init(); use ezlog.log after calling ezlog.init().
+# Set by init(); optional, use log = EzLog(...) for direct assignment.
 log: EzLog | None = None
 
 
@@ -41,31 +58,20 @@ def init(
     use_colors: bool = True,
     use_timestamp: bool = True,
 ) -> EzLog:
-    """
-    Initialize ezlog and wire it to stdlib logging. Call once at startup.
-    After init(), use ezlog.log for direct logging (including .success()) or
-    logging.info() / logger.error() etc.; all go through ezlog formatting.
-    """
+    """Create EzLog (wires to stdlib) and set ezlog.log. Optional; you can use log = EzLog(...) directly."""
     global log
-    log = EzLog({
-        "useColors": use_colors,
-        "useTimestamp": use_timestamp,
-    })
-    root = logging.getLogger()
-    root.addHandler(_EzLogHandler(log))
-    root.setLevel(logging.DEBUG)
+    log = EzLog(use_colors=use_colors, use_timestamp=use_timestamp)
     return log
 
 
 def main() -> None:
-    """CLI entry point: init + short demo."""
-    init(use_colors=True, use_timestamp=True)
-    assert log is not None
-    log.success("Application started")
-    log.info("Environment: dev")
-    log.w("Warning message")
-    log.e("Error message")
-    log.d("Debug message")
-    log.info("User data:", {"id": 1, "name": "John"})
-    log.configure({"useTimestamp": False})
-    log.s("Done")
+    """CLI entry point: log = EzLog() + short demo."""
+    log_instance = EzLog(use_colors=True, use_timestamp=True)
+    log_instance.success("Application started")
+    log_instance.info("Environment: dev")
+    log_instance.w("Warning message")
+    log_instance.e("Error message")
+    log_instance.d("Debug message")
+    log_instance.info("User data:", {"id": 1, "name": "John"})
+    log_instance.configure({"timestamp": False})
+    log_instance.s("Done")
