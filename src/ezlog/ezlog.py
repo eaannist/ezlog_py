@@ -29,6 +29,7 @@ from ezlog.types import (
     LevelConfig,
     LevelsConfig,
     LogLevel,
+    SegmentConfig,
     TimestampConfig,
 )
 
@@ -119,6 +120,8 @@ class EzLog:
             "useColors": cfg.get("useColors", USE_COLORS_DEFAULT),
             "useLevels": cfg.get("useLevels", USE_LEVELS_DEFAULT),
             "useSymbols": cfg.get("useSymbols", USE_SYMBOLS_DEFAULT),
+            "textColor": cfg.get("textColor", "white"),
+            "bracesColor": cfg.get("bracesColor", "light-white"),
             "timestamp": _merge_timestamp(
                 DEFAULT_TIMESTAMP,
                 cfg.get("timestamp") if "timestamp" in cfg else None,
@@ -173,7 +176,7 @@ class EzLog:
                 self._config.get("timestamp") or DEFAULT_TIMESTAMP,
                 config["timestamp"],
             )
-        for key in ("useColors", "useLevels", "useSymbols"):
+        for key in ("useColors", "useLevels", "useSymbols", "textColor", "bracesColor"):
             if key in config and config[key] is not None:
                 self._config[key] = config[key]  # type: ignore[typeddict-unknown-key]
         if "useColors" in config or "levels" in config:
@@ -188,6 +191,8 @@ class EzLog:
             "useColors": self._config.get("useColors", True),
             "useLevels": self._config.get("useLevels", True),
             "useSymbols": self._config.get("useSymbols", True),
+            "textColor": self._config.get("textColor", "white"),
+            "bracesColor": self._config.get("bracesColor", "light-white"),
             "timestamp": False if ts is False else dict(ts or {}),
         }
 
@@ -202,18 +207,54 @@ class EzLog:
         else:
             color_code = self._colors.get(color_key, self._colors["reset"])
         now_str = datetime.now().strftime(fmt)
-        return f"[{color_code}{now_str}{self._colors['reset']}] "
+        braces_name = self._config.get("bracesColor", "light-white")
+        braces_code = self._colors.get(braces_name, self._colors["reset"])
+        return (
+            f"{braces_code}[{color_code}{now_str}{self._colors['reset']}"
+            f"{braces_code}]{self._colors['reset']} "
+        )
 
-    def _get_prefix(self, level: LogLevel) -> str:
+    def _format_segments(
+        self, level: LogLevel, segments: list[SegmentConfig] | None
+    ) -> str:
+        if not segments:
+            return ""
+        lc = self._level_config[level]
+        base_color = lc["color"]
+        braces_name = self._config.get("bracesColor", "light-white")
+        braces_code = self._colors.get(braces_name, self._colors["reset"])
+        parts: list[str] = []
+        for seg in segments:
+            text = seg.get("text")
+            if not text:
+                continue
+            color_key = seg.get("color", "as_levels")
+            if color_key == "as_levels":
+                color_code = base_color
+            else:
+                color_code = self._colors.get(color_key, self._colors["reset"])
+            parts.append(
+                f"{braces_code}[{color_code}{text}{self._colors['reset']}"
+                f"{braces_code}]{self._colors['reset']} "
+            )
+        return "".join(parts)
+
+    def _get_prefix(
+        self, level: LogLevel, segments: list[SegmentConfig] | None = None
+    ) -> str:
         lc = self._level_config[level]
         display = lc["symbol"] if self._config.get("useSymbols", True) else lc["text"]
         ts = self._get_timestamp(level)
+        segs = self._format_segments(level, segments)
+        braces_name = self._config.get("bracesColor", "light-white")
+        braces_code = self._colors.get(braces_name, self._colors["reset"])
         if self._config.get("useLevels", True):
             return (
-                f"{self._colors['reset']}{ts}"
-                f"[{lc['color']}{display}{self._colors['reset']}] "
+                f"{self._colors['reset']}{ts}{segs}"
+                f"{braces_code}[{lc['color']}{display}{self._colors['reset']}"
+                f"{braces_code}]{self._colors['reset']} "
             )
-        return f"{self._colors['reset']}{ts}"
+        return f"{self._colors['reset']}{ts}{segs}"
 
     def _safe_stringify(self, obj: Any, space: int | None = None) -> str:
         try:
@@ -335,20 +376,30 @@ class EzLog:
                 return self._safe_stringify(safe, 2) + "\n"
             except (TypeError, ValueError, RecursionError):
                 return "[Non-serializable object]\n"
-        return str(arg)
+        text = str(arg)
+        if not text:
+            return text
+        text_color_name = self._config.get("textColor", "white")
+        text_color_code = self._colors.get(text_color_name, self._colors["reset"])
+        return f"{text_color_code}{text}{self._colors['reset']}"
 
     def _format_args(self, *args: Any) -> str:
         return " ".join(self._format_arg(a) for a in args)
 
-    def _log(self, level: LogLevel, *args: Any) -> None:
+    def _log_with_segments(
+        self, level: LogLevel, segments: list[SegmentConfig] | None, *args: Any
+    ) -> None:
         levels = self._config.get("levels") or {}
         if levels.get(level) is False or not args:
             return
         lc = self._level_config.get(level)
         if not lc:
             return
-        msg = f"{self._get_prefix(level)}{self._format_args(*args)}"
+        msg = f"{self._get_prefix(level, segments)}{self._format_args(*args)}"
         lc["consoleFn"](msg)
+
+    def _log(self, level: LogLevel, *args: Any) -> None:
+        self._log_with_segments(level, None, *args)
 
     def error(self, *args: Any) -> None:
         self._log("error", *args)
@@ -385,6 +436,10 @@ class EzLog:
 
     def c(self, *args: Any) -> None:
         self._log("critical", *args)
+
+    def with_segments(self, segments: list[SegmentConfig]) -> "_SegmentedEzLog":
+        """Return a logger view that always logs with the given additional segments."""
+        return _SegmentedEzLog(self, list(segments))
 
     @property
     def green(self) -> str:
@@ -450,3 +505,64 @@ def _wire_to_stdlib(ezlog_instance: EzLog) -> None:
             root.removeHandler(handler)
     root.addHandler(_EzLogHandler(ezlog_instance))
     root.setLevel(logging.DEBUG)
+
+
+class _SegmentedEzLog:
+    """Lightweight view over EzLog that always logs with additional segments."""
+
+    def __init__(self, base: EzLog, segments: list[SegmentConfig]) -> None:
+        self._base = base
+        self._segments = segments
+
+    def _log(self, level: LogLevel, *args: Any) -> None:
+        self._base._log_with_segments(level, self._segments, *args)
+
+    def debug(self, *args: Any) -> None:
+        self._log("debug", *args)
+
+    def info(self, *args: Any) -> None:
+        self._log("info", *args)
+
+    def success(self, *args: Any) -> None:
+        self._log("success", *args)
+
+    def warn(self, *args: Any) -> None:
+        self._log("warn", *args)
+
+    def error(self, *args: Any) -> None:
+        self._log("error", *args)
+
+    def critical(self, *args: Any) -> None:
+        self._log("critical", *args)
+
+    # Short aliases
+    def d(self, *args: Any) -> None:
+        self._log("debug", *args)
+
+    def i(self, *args: Any) -> None:
+        self._log("info", *args)
+
+    def s(self, *args: Any) -> None:
+        self._log("success", *args)
+
+    def w(self, *args: Any) -> None:
+        self._log("warn", *args)
+
+    def e(self, *args: Any) -> None:
+        self._log("error", *args)
+
+    def c(self, *args: Any) -> None:
+        self._log("critical", *args)
+
+    def with_segments(self, segments: list[SegmentConfig]) -> "_SegmentedEzLog":
+        """Chain more segments on top of this view."""
+        return _SegmentedEzLog(self._base, self._segments + list(segments))
+
+    def __getattr__(self, name: str) -> Any:
+        """Delegate unknown attributes to the base EzLog instance."""
+        return getattr(self._base, name)
+
+
+def add_segments(base_log: EzLog, segments: list[SegmentConfig]) -> _SegmentedEzLog:
+    """Return a logger view that always logs with the given additional segments."""
+    return base_log.with_segments(segments)

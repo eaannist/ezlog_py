@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ezlog import COLOR_CODES, EzLog
+from ezlog import COLOR_CODES, EzLog, add_segments
 from ezlog.defaults import DEFAULT_COLORS, DEFAULT_TEXTS, DEFAULT_SYMBOLS_FALLBACK
 
 
@@ -74,6 +74,17 @@ def main() -> None:
     no_ts.info("This line has no timestamp prefix")
     no_ts.success("Symbol and level label still shown")
 
+    # Text and braces colors at construction
+    colored = EzLog(
+        {
+            "useColors": True,
+            "timestamp": {"color": "as_levels"},
+            "textColor": "yellow",
+            "bracesColor": "light-white",
+        }
+    )
+    colored.info("Custom textColor (yellow) and bracesColor (light-white)")
+
     # -------------------------------------------------------------------------
     # 7. configure() at runtime
     # -------------------------------------------------------------------------
@@ -131,7 +142,7 @@ def main() -> None:
     log.i(
         "Colors: {\n"
         f"{"\n".join(f"        {code}{color}" for color, code in COLOR_CODES.items())}"
-        "\n    }"
+        f"{log.reset}\n    }}"
     )
 
     # -------------------------------------------------------------------------
@@ -185,6 +196,26 @@ def main() -> None:
     dev.d("Dev logger: debug enabled")
     prod.d("Prod logger: debug disabled (this won't print)")
     prod.i("Prod logger: info still works")
+
+    # -------------------------------------------------------------------------
+    # 17. Module / contextual segments (with_segments and add_segments)
+    # -------------------------------------------------------------------------
+    _sep("17. Module / contextual segments (with_segments / add_segments)")
+    base_log = EzLog({"useColors": True, "bracesColor": "gray", "textColor": "yellow", "timestamp": {"color": "as_levels"}})
+    logic_log = base_log.with_segments(
+        [
+            {"text": "LogicModule", "color": "as_levels"},
+        ]
+    )
+    api_log = add_segments(
+        base_log,
+        [
+            {"text": "API", "color": "as_levels"},
+        ],
+    )
+
+    logic_log.i("Message from logic module")
+    api_log.i("Message from API layer")
 
     _sep("Done")
     print()

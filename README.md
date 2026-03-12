@@ -45,14 +45,16 @@ log = EzLog({
     "useColors": True,
     "useLevels": True,
     "useSymbols": False,
+    "textColor": "white",
+    "bracesColor": "light-white",
     "timestamp": {
         "color": "white",
         "format": "%Y-%m-%d %H:%M:%S",
     },
     "levels": {
         "info": {"text": "Information"},
-        "debug": False,      # disable debug in production
-        "critical": False,   # or disable a level entirely
+        "debug": isDevelopment, # disable debug in production
+        "critical": False,      # or disable a level entirely
     },
 })
 ```
@@ -62,6 +64,8 @@ Each option has a default and is optional.
 - **useColors** : boolean – Enable ANSI colors. Default `True`.
 - **useLevels** : boolean – Show level label/symbol in output. Default `True`.
 - **useSymbols** : boolean – Use symbol for level (if `False`, use text label). Default `True`.
+- **textColor** : `LogColors` – define text color (e.g. `"light-red"`, `"cyan"`). Default `white`.
+- **bracesColor** : `LogColors` – define braces color (e.g. `"light-red"`, `"cyan"`). Default `light-white`.
 - **timestamp** : `TimestampConfig` or `False` – Configure timestamp, or set to `False` to disable.
 - **levels** : `LevelsConfig` – Keys: `debug`, `info`, `success`, `warn`, `error`, `critical`. Each value is a `LevelConfig` (partial override) or `False` to disable that level.
 
@@ -75,6 +79,38 @@ Each option has a default and is optional.
 
 - **format** : str – strftime format (e.g. `"%Y-%m-%d %H:%M:%S"`). Default from `ezlog.defaults.DEFAULT_TIMESTAMP_FORMAT`.
 - **color** : `LogColors` or `"as_levels"` – Timestamp color. `"as_levels"` uses the same color as the log level. Default `"as_levels"`.
+
+## Module / contextual segments
+
+You can create logger "views" with additional prefixed segments, useful to tag modules, subsystems, or request scopes, without reconfiguring the global logger:
+
+```python
+from ezlog import EzLog, add_segments
+
+base_log = EzLog({"useColors": True, "timestamp": {"color": "as_levels"}})
+
+# Per-module logger (LogicModule)
+logic_log = base_log.with_segments([
+    {"text": "LogicModule", "color": "as_levels"},
+])
+
+# Or using the helper function:
+api_log = add_segments(base_log, [
+    {"text": "API", "color": "as_levels"},
+])
+
+logic_log.i("message from logic module")
+api_log.i("message from API layer")
+```
+
+Output example:
+
+```text
+[2026-03-12 11:36:28] [LogicModule] [i] message from logic module
+[2026-03-12 11:36:29] [API] [i] message from API layer
+```
+
+Segments use the same color system as timestamps: `"color": "as_levels"` reuses the level color, or you can pass any `LogColors` value.
 
 ## Levels
 
@@ -90,5 +126,5 @@ When **useColors** is enabled, the logger exposes: `log.red`, `log.yellow`, `log
 ## Exports
 
 - **EzLog**(config?) – Create logger (wires to stdlib on construction). Config optional: `EzLog()` or `EzLog({"useColors": True, "timestamp": False})`.
-- **Types** – `LogLevel`, `LogColors`, `TimestampColor`, `TimestampConfig`, `EzlogConfig`, `LevelsConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`.
+- **Types** – `LogLevel`, `LogColors`, `TimestampColor`, `TimestampConfig`, `SegmentConfig`, `EzlogConfig`, `LevelsConfig`, `LevelConfig`, `LogArgs`, `ConsoleMethod`.
 - **Constants** (from `ezlog.defaults`) – `COLOR_CODES`, `RESET`, `DEFAULT_SYMBOLS_FALLBACK`, `DEFAULT_TEXTS`, `DEFAULT_COLORS`, `DEFAULT_TIMESTAMP_FORMAT`, `DEFAULT_TIMESTAMP_COLOR`, `DEFAULT_TIMESTAMP`.

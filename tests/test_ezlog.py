@@ -5,7 +5,7 @@ import sys
 from datetime import datetime
 from typing import Any
 
-from ezlog import EzLog
+from ezlog import EzLog, add_segments
 from ezlog.defaults import (
     DEFAULT_COLORS,
     DEFAULT_SYMBOLS_FALLBACK,
@@ -372,6 +372,69 @@ class TestEzLogColorProperties:
         assert logger.reset == ""
 
 
+class TestEzLogTextAndBracesColors:
+    """EzLog - textColor and bracesColor."""
+
+    def test_text_color_wraps_plain_text_arguments(self) -> None:
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            logger = EzLog(
+                {
+                    "useColors": True,
+                    "timestamp": False,
+                    "textColor": "yellow",
+                }
+            )
+            logger.info("Colored message")
+            out = buf.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        # Expect the yellow ANSI code around the message
+        assert "\x1b[33mColored message\x1b[0m" in out
+
+    def test_braces_color_wraps_level_brackets(self) -> None:
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            logger = EzLog(
+                {
+                    "useColors": True,
+                    "timestamp": False,
+                    "bracesColor": "light-white",
+                }
+            )
+            logger.info("test")
+            out = buf.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        # Leading [ and trailing ] for the level should be wrapped in light-white
+        assert "\x1b[97m[" in out
+        assert "]\x1b[0m " in out
+
+    def test_braces_color_wraps_timestamp_brackets(self) -> None:
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            logger = EzLog(
+                {
+                    "useColors": True,
+                    "timestamp": {"format": "%H:%M:%S", "color": "white"},
+                    "bracesColor": "light-white",
+                }
+            )
+            logger.info("with timestamp")
+            out = buf.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        # Expect timestamp enclosed in light-white brackets
+        assert "\x1b[97m[" in out
+        assert "]\x1b[0m " in out
+
+
 # --- Edge cases ---
 
 
@@ -542,3 +605,35 @@ class TestEzLogOutputBehavior:
         finally:
             sys.stdout = old_stdout
         assert "Must not appear" not in out
+
+
+class TestEzLogSegments:
+    """EzLog - Additional segments via with_segments() and add_segments()."""
+
+    def test_with_segments_adds_segment_prefix(self) -> None:
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            log = EzLog({"useColors": False, "timestamp": False})
+            mod_log = log.with_segments([{"text": "LogicModule"}])
+            mod_log.info("Hello from logic")
+            out = buf.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        assert "[LogicModule]" in out
+        assert "Hello from logic" in out
+
+    def test_add_segments_helper_uses_same_behavior(self) -> None:
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        try:
+            base = EzLog({"useColors": False, "timestamp": False})
+            log = add_segments(base, [{"text": "API", "color": "as_levels"}])
+            log.i("Request received")
+            out = buf.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        assert "[API]" in out
+        assert "Request received" in out

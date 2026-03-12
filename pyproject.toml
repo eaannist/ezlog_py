@@ -1,6 +1,6 @@
 [project]
 name = "ezlog-py"
-version = "1.0.4"
+version = "1.5.0"
 description = "Simple, performant logging with ANSI colors for Python."
 readme = "README.md"
 authors = [

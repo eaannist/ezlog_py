@@ -14,7 +14,7 @@ from ezlog.defaults import (
     DEFAULT_TIMESTAMP_FORMAT,
     DEFAULT_TEXTS,
 )
-from ezlog.ezlog import EzLog
+from ezlog.ezlog import EzLog, add_segments
 from ezlog.types import (
     ConsoleMethod,
     EzlogConfig,
@@ -23,16 +23,19 @@ from ezlog.types import (
     LogArgs,
     LogColors,
     LogLevel,
+    SegmentConfig,
     TimestampConfig,
     TimestampColor,
 )
 
 __all__ = [
     "EzLog",
+    "add_segments",
     "LogLevel",
     "LogColors",
     "TimestampColor",
     "TimestampConfig",
+    "SegmentConfig",
     "EzlogConfig",
     "LevelsConfig",
     "LevelConfig",

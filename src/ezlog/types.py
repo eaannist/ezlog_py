@@ -31,6 +31,13 @@ class TimestampConfig(TypedDict, total=False):
     format: str
 
 
+class SegmentConfig(TypedDict, total=False):
+    """Additional prefix segment: text with optional color (or 'as_levels')."""
+
+    text: str
+    color: TimestampColor
+
+
 class LevelConfig(TypedDict):
     """Per-level config: symbol, text, color. consoleFn is injected by ezlog (not user-configurable)."""
 
@@ -56,6 +63,8 @@ class EzlogConfig(TypedDict, total=False):
     useColors: bool
     useLevels: bool
     useSymbols: bool
+    textColor: LogColors
+    bracesColor: LogColors
     timestamp: Union[TimestampConfig, Literal[False]]
     levels: LevelsConfig
 
