@@ -22,6 +22,7 @@ LogColors = Literal[
     "light-white",
 ]
 TimestampColor = LogColors | Literal["as_levels"]
+SegmentsColor = TimestampColor
 
 
 class TimestampConfig(TypedDict, total=False):
@@ -35,7 +36,7 @@ class SegmentConfig(TypedDict, total=False):
     """Additional prefix segment: text with optional color (or 'as_levels')."""
 
     text: str
-    color: TimestampColor
+    color: SegmentsColor
 
 
 class LevelConfig(TypedDict):

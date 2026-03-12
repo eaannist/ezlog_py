@@ -1,6 +1,6 @@
 [project]
 name = "ezlog-py"
-version = "1.5.0"
+version = "1.0.8"
 description = "Simple, performant logging with ANSI colors for Python."
 readme = "README.md"
 authors = [
@@ -18,7 +18,7 @@ dev = ["pytest>=8.0.0"]
 ezlog-py = "ezlog:main"
 
 [build-system]
-requires = ["uv_build>=0.9.27,<0.10.0"]
+requires = ["uv_build>=0.9.27,<0.11"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

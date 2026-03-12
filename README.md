@@ -121,7 +121,20 @@ Segments use the same color system as timestamps: `"color": "as_levels"` reuses 
 
 ## Color properties
 
-When **useColors** is enabled, the logger exposes: `log.red`, `log.yellow`, `log.cyan`, `log.green`, `log.magenta`, `log.white`, `log.gray`, `log.reset`. Use them for custom formatted output; end colored segments with `log.reset`.
+When **useColors** is enabled, the logger exposes: 
+| Standard colors   | Light colors       |
+|-------------------|--------------------|
+| `log.red`         | `log.light_red`    |
+| `log.yellow`      | `log.lyellow`      |
+| `log.cyan`        | `log.lcyan`        |
+| `log.green`       | `log.lgreen`       |
+| `log.magenta`     | `log.lmagenta`     |
+| `log.blue`        | `log.lblue`        |
+| `log.white`       | `log.lwhite`       |
+| `log.black`       |                    |
+| `log.gray`        |                    |
+
+Use them for custom formatted output; end colored segments with `log.reset`.
 
 ## Exports
 

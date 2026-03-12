@@ -14,12 +14,15 @@ from datetime import datetime
 from typing import Any, Literal
 
 from ezlog.defaults import (
+    BRACES_COLOR_DEFAULT,
     COLOR_CODES,
     DEFAULT_COLORS,
+    DEFAULT_SEGMENTS_COLOR,
     DEFAULT_SYMBOLS_FALLBACK,
     DEFAULT_TIMESTAMP,
     DEFAULT_TIMESTAMP_FORMAT,
     DEFAULT_TEXTS,
+    TEXT_COLOR_DEFAULT,
     USE_COLORS_DEFAULT,
     USE_LEVELS_DEFAULT,
     USE_SYMBOLS_DEFAULT,
@@ -120,8 +123,8 @@ class EzLog:
             "useColors": cfg.get("useColors", USE_COLORS_DEFAULT),
             "useLevels": cfg.get("useLevels", USE_LEVELS_DEFAULT),
             "useSymbols": cfg.get("useSymbols", USE_SYMBOLS_DEFAULT),
-            "textColor": cfg.get("textColor", "white"),
-            "bracesColor": cfg.get("bracesColor", "light-white"),
+            "textColor": cfg.get("textColor", TEXT_COLOR_DEFAULT),
+            "bracesColor": cfg.get("bracesColor", BRACES_COLOR_DEFAULT),
             "timestamp": _merge_timestamp(
                 DEFAULT_TIMESTAMP,
                 cfg.get("timestamp") if "timestamp" in cfg else None,
@@ -228,7 +231,7 @@ class EzLog:
             text = seg.get("text")
             if not text:
                 continue
-            color_key = seg.get("color", "as_levels")
+            color_key = seg.get("color", DEFAULT_SEGMENTS_COLOR)
             if color_key == "as_levels":
                 color_code = base_color
             else:
@@ -442,36 +445,72 @@ class EzLog:
         return _SegmentedEzLog(self, list(segments))
 
     @property
-    def green(self) -> str:
-        return self._colors["green"]
+    def reset(self) -> str:
+        return self._colors["reset"]
 
     @property
-    def red(self) -> str:
-        return self._colors["red"]
-
-    @property
-    def yellow(self) -> str:
-        return self._colors["yellow"]
-
-    @property
-    def cyan(self) -> str:
-        return self._colors["cyan"]
-
-    @property
-    def magenta(self) -> str:
-        return self._colors["magenta"]
+    def black(self) -> str:
+        return self._colors["black"]
 
     @property
     def white(self) -> str:
         return self._colors["white"]
 
     @property
+    def yellow(self) -> str:
+        return self._colors["yellow"]
+
+    @property
+    def blue(self) -> str:
+        return self._colors["blue"]
+
+    @property
+    def magenta(self) -> str:
+        return self._colors["magenta"]
+
+    @property
+    def cyan(self) -> str:
+        return self._colors["cyan"]
+
+    @property
     def gray(self) -> str:
         return self._colors["gray"]
 
     @property
-    def reset(self) -> str:
-        return self._colors["reset"]
+    def red(self) -> str:
+        return self._colors["red"]
+
+    @property
+    def green(self) -> str:
+        return self._colors["green"]
+
+    @property
+    def light_red(self) -> str:
+        return self._colors["light-red"]
+
+    @property
+    def lgreen(self) -> str:
+        return self._colors["light-green"]
+
+    @property
+    def lyellow(self) -> str:
+        return self._colors["light-yellow"]
+
+    @property
+    def lblue(self) -> str:
+        return self._colors["light-blue"]
+
+    @property
+    def lmagenta(self) -> str:
+        return self._colors["light-magenta"]
+
+    @property
+    def lcyan(self) -> str:
+        return self._colors["light-cyan"]
+
+    @property
+    def lwhite(self) -> str:
+        return self._colors["light-white"]
 
 
 class _EzLogHandler(logging.Handler):

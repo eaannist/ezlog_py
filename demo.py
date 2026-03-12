@@ -201,21 +201,31 @@ def main() -> None:
     # 17. Module / contextual segments (with_segments and add_segments)
     # -------------------------------------------------------------------------
     _sep("17. Module / contextual segments (with_segments / add_segments)")
-    base_log = EzLog({"useColors": True, "bracesColor": "gray", "textColor": "yellow", "timestamp": {"color": "as_levels"}})
-    logic_log = base_log.with_segments(
+    base_log = EzLog({
+    })
+
+    h_log = base_log.with_segments(
         [
-            {"text": "LogicModule", "color": "as_levels"},
+            {"text": "Handler"},
         ]
     )
-    api_log = add_segments(
+    r_log = add_segments(
         base_log,
         [
-            {"text": "API", "color": "as_levels"},
+            {"text": "Router"},
         ],
     )
 
-    logic_log.i("Message from logic module")
-    api_log.i("Message from API layer")
+    h_log.i("Message from Handler")
+    h_log.s("Message from Handler")
+    h_log.w("Message from Handler")
+    h_log.e("Message from Handler")
+    h_log.c("Message from Handler")
+    r_log.i("Message from Router")
+    r_log.s("Message from Router")
+    r_log.w("Message from Router")
+    r_log.e("Message from Router")
+    r_log.c("Message from Router")
 
     _sep("Done")
     print()

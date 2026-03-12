@@ -4,9 +4,9 @@
 
 from ezlog.types import TimestampColor
 
-
 COLOR_CODES: dict[str, str] = {
     "reset": "\x1b[0m",
+    "black": "\x1b[30m",
     "white": "\x1b[37m",
     "yellow": "\x1b[33m",
     "green": "\x1b[32m",
@@ -49,14 +49,14 @@ DEFAULT_COLORS: dict[str, str] = {
     "debug": "light-magenta",
     "info": "cyan",
     "success": "light-green",
-    "warn": "yellow",
+    "warn": "light-yellow",
     "error": "red",
     "critical": "light-red",
 }
 
 # --- Timestamp: format and color ("as_levels" = use level color) ---
 DEFAULT_TIMESTAMP_FORMAT: str = "%Y-%m-%d %H:%M:%S"
-DEFAULT_TIMESTAMP_COLOR: TimestampColor = "as_levels"
+DEFAULT_TIMESTAMP_COLOR: TimestampColor = "gray"
 DEFAULT_TIMESTAMP: dict[str, str] = {
     "format": DEFAULT_TIMESTAMP_FORMAT,
     "color": DEFAULT_TIMESTAMP_COLOR,
@@ -66,3 +66,6 @@ DEFAULT_TIMESTAMP: dict[str, str] = {
 USE_COLORS_DEFAULT = True
 USE_LEVELS_DEFAULT = True
 USE_SYMBOLS_DEFAULT = True
+TEXT_COLOR_DEFAULT = "white"
+BRACES_COLOR_DEFAULT = "gray"
+DEFAULT_SEGMENTS_COLOR = "white"
