@@ -47,6 +47,7 @@ log = EzLog({
     "useSymbols": False,
     "textColor": "white",
     "bracesColor": "light-white",
+    "stdlibLevel": "INFO",
     "timestamp": {
         "color": "white",
         "format": "%Y-%m-%d %H:%M:%S",
@@ -68,6 +69,7 @@ Each option has a default and is optional.
 - **bracesColor** : `LogColors` – define braces color (e.g. `"light-red"`, `"cyan"`). Default `light-white`.
 - **timestamp** : `TimestampConfig` or `False` – Configure timestamp, or set to `False` to disable.
 - **levels** : `LevelsConfig` – Keys: `debug`, `info`, `success`, `warn`, `error`, `critical`. Each value is a `LevelConfig` (partial override) or `False` to disable that level.
+- **stdlibLevel** : `StdLevel` – Root stdlib logging threshold used by ezlog wiring. `StdLevel` accepts: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` (case-insensitive), ezlog level names (`"debug"`, `"warn"`, etc.), or a numeric stdlib level.
 
 #### `LevelConfig`
 
@@ -118,6 +120,25 @@ Segments use the same color system as timestamps: `"color": "as_levels"` reuses 
 - **Short aliases**: `d`, `i`, `s`, `w`, `e`, `c`.
 - **Stdlib mapping**: `logging.DEBUG` → debug, `logging.INFO` → info, `logging.WARNING` → warn, `logging.ERROR` → error, `logging.CRITICAL` → critical. `NOTSET` is skipped.
 - Default symbols and colors are in `ezlog.defaults` (`DEFAULT_TEXTS`, `DEFAULT_COLORS`, `DEFAULT_SYMBOLS_FALLBACK`).
+
+### Runtime stdlib level control
+
+You can control how much stdlib logging gets through ezlog:
+
+```python
+import logging
+from ezlog import EzLog
+
+log = EzLog({"stdlibLevel": "INFO"})  # suppress stdlib DEBUG by default
+logging.debug("hidden (filtered by stdlibLevel=INFO)")
+logging.info("visible (passes stdlibLevel=INFO)")
+
+log.set_stdlib_debug(True)     # DEBUG
+log.set_stdlib_debug(False)    # INFO
+
+log.set_stdlib_level("ERROR")  # threshold by name
+log.set_stdlib_level(logging.WARNING)  # threshold by numeric level
+```
 
 ## Color properties
 

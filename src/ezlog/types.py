@@ -24,6 +24,9 @@ LogColors = Literal[
 TimestampColor = LogColors | Literal["as_levels"]
 SegmentsColor = TimestampColor
 
+StdLibLevelKey = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+StdLevel = Union[StdLibLevelKey, LogLevel, int]
+
 
 class TimestampConfig(TypedDict, total=False):
     """Timestamp configuration. If missing, use defaults. Use timestamp: False to disable."""
@@ -68,6 +71,7 @@ class EzlogConfig(TypedDict, total=False):
     bracesColor: LogColors
     timestamp: Union[TimestampConfig, Literal[False]]
     levels: LevelsConfig
+    stdlibLevel: StdLevel
 
 
 ConsoleMethod = Callable[..., None]

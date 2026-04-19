@@ -557,6 +557,140 @@ class TestEzLogWiresStdlib:
         logging.critical("Stdlib critical")
         assert True  # no throw
 
+    def test_stdlib_level_from_config_can_disable_debug(self) -> None:
+        log = EzLog({"useColors": False, "timestamp": False, "stdlibLevel": "INFO"})
+        assert logging.getLogger().level == logging.INFO
+        logging.debug("This debug should be filtered by stdlib level")
+        assert True  # no throw
+
+    def test_set_stdlib_level_updates_root_level(self) -> None:
+        log = EzLog({"useColors": False, "timestamp": False})
+        log.set_stdlib_level("ERROR")
+        assert logging.getLogger().level == logging.ERROR
+        log.set_stdlib_level("debug")
+        assert logging.getLogger().level == logging.DEBUG
+
+    def test_set_stdlib_debug_shortcut(self) -> None:
+        log = EzLog({"useColors": False, "timestamp": False})
+        log.set_stdlib_debug(False)
+        assert logging.getLogger().level == logging.INFO
+        log.set_stdlib_debug(True)
+        assert logging.getLogger().level == logging.DEBUG
+
+    def test_invalid_stdlib_level_raises_value_error(self) -> None:
+        log = EzLog({"useColors": False, "timestamp": False})
+        try:
+            log.set_stdlib_level("NOT_A_LEVEL")
+            assert False
+        except ValueError:
+            assert True
+
+    def test_invalid_numeric_stdlib_level_raises_value_error(self) -> None:
+        log = EzLog({"useColors": False, "timestamp": False})
+        try:
+            log.set_stdlib_level(15)  # not a known stdlib level in ezlog map
+            assert False
+        except ValueError:
+            assert True
+
+
+class TestEzLogStdlibFilteringOutput:
+    """EzLog - stdlibLevel affects which stdlib logs are emitted."""
+
+    def test_stdlib_level_INFO_filters_debug_on_stdout(self) -> None:
+        root = logging.getLogger()
+        old_level = root.level
+        try:
+            _log = EzLog({"useColors": False, "timestamp": False, "stdlibLevel": "INFO"})
+            buf = io.StringIO()
+            old_stdout = sys.stdout
+            sys.stdout = buf
+            try:
+                logging.debug("hidden_debug")
+                logging.info("visible_info")
+            finally:
+                sys.stdout = old_stdout
+            out = buf.getvalue()
+            assert "hidden_debug" not in out
+            assert "visible_info" in out
+        finally:
+            root.setLevel(old_level)
+
+    def test_set_stdlib_level_ERROR_filters_info_and_warn_and_keeps_error_in_stderr(self) -> None:
+        root = logging.getLogger()
+        old_level = root.level
+        try:
+            log = EzLog({"useColors": False, "timestamp": False, "stdlibLevel": "ERROR"})
+            buf_out = io.StringIO()
+            buf_err = io.StringIO()
+            old_stdout, old_stderr = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = buf_out, buf_err
+            try:
+                logging.info("hidden_info")
+                logging.warning("hidden_warn")
+                logging.error("visible_error")
+            finally:
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+
+            assert "hidden_info" not in buf_out.getvalue()
+            assert "hidden_warn" not in buf_err.getvalue()
+            assert "visible_error" in buf_err.getvalue()
+
+            # Now test runtime setter.
+            log.set_stdlib_level("DEBUG")
+            buf_out2 = io.StringIO()
+            buf_err2 = io.StringIO()
+            sys.stdout, sys.stderr = buf_out2, buf_err2
+            try:
+                logging.info("hidden_info2")
+                logging.error("visible_error2")
+            finally:
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+            assert "hidden_info2" in buf_out2.getvalue()
+            assert "visible_error2" in buf_err2.getvalue()
+        finally:
+            root.setLevel(old_level)
+
+    def test_numeric_stdlib_level_is_supported(self) -> None:
+        root = logging.getLogger()
+        old_level = root.level
+        try:
+            # 30 == WARNING
+            _log = EzLog({"useColors": False, "timestamp": False, "stdlibLevel": 30})
+            buf_out = io.StringIO()
+            buf_err = io.StringIO()
+            old_stdout, old_stderr = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = buf_out, buf_err
+            try:
+                logging.info("hidden_info_numeric")
+                logging.warning("visible_warn_numeric")
+            finally:
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+            assert "hidden_info_numeric" not in buf_out.getvalue()
+            assert "visible_warn_numeric" in buf_err.getvalue()
+        finally:
+            root.setLevel(old_level)
+
+    def test_ezlog_level_name_accepted_in_set_stdlib_level(self) -> None:
+        root = logging.getLogger()
+        old_level = root.level
+        try:
+            log = EzLog({"useColors": False, "timestamp": False, "stdlibLevel": "INFO"})
+            log.set_stdlib_level("warn")
+            buf_out = io.StringIO()
+            buf_err = io.StringIO()
+            old_stdout, old_stderr = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = buf_out, buf_err
+            try:
+                logging.info("hidden_info_ezlog_name")
+                logging.warning("visible_warn_ezlog_name")
+            finally:
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+            assert "hidden_info_ezlog_name" not in buf_out.getvalue()
+            assert "visible_warn_ezlog_name" in buf_err.getvalue()
+        finally:
+            root.setLevel(old_level)
+
 
 # --- Output behavior (capture) ---
 

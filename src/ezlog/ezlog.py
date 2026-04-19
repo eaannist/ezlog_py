@@ -19,6 +19,7 @@ from ezlog.defaults import (
     DEFAULT_COLORS,
     DEFAULT_SEGMENTS_COLOR,
     DEFAULT_SYMBOLS_FALLBACK,
+    DEFAULT_STDLIB_LEVEL,
     DEFAULT_TIMESTAMP,
     DEFAULT_TIMESTAMP_FORMAT,
     DEFAULT_TEXTS,
@@ -32,6 +33,7 @@ from ezlog.types import (
     LevelConfig,
     LevelsConfig,
     LogLevel,
+    StdLevel,
     SegmentConfig,
     TimestampConfig,
 )
@@ -58,6 +60,23 @@ _LOG_LEVELS: tuple[LogLevel, ...] = (
     "error",
     "critical",
 )
+
+_STDLIB_LEVEL_NAME_MAP: dict[str, int] = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+
+_STD_LEVEL_FROM_EZLOG: dict[LogLevel, int] = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "success": logging.INFO,
+    "warn": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
 
 
 def _safe_symbol(s: str, fallback: str = "?") -> str:
@@ -129,10 +148,11 @@ class EzLog:
                 DEFAULT_TIMESTAMP,
                 cfg.get("timestamp") if "timestamp" in cfg else None,
             ),
+            "stdlibLevel": cfg.get("stdlibLevel", DEFAULT_STDLIB_LEVEL),
         }
         self._colors = self._build_colors()
         self._level_config: dict[str, dict[str, Any]] = self._build_level_config()
-        _wire_to_stdlib(self)
+        _wire_to_stdlib(self, self._resolve_stdlib_level(self._config.get("stdlibLevel", DEFAULT_STDLIB_LEVEL)))
 
     def _build_colors(self) -> dict[str, str]:
         use = self._config.get("useColors", True)
@@ -182,6 +202,8 @@ class EzLog:
         for key in ("useColors", "useLevels", "useSymbols", "textColor", "bracesColor"):
             if key in config and config[key] is not None:
                 self._config[key] = config[key]  # type: ignore[typeddict-unknown-key]
+        if "stdlibLevel" in config and config["stdlibLevel"] is not None:
+            self.set_stdlib_level(config["stdlibLevel"])
         if "useColors" in config or "levels" in config:
             self._colors = self._build_colors()
             self._level_config = self._build_level_config()
@@ -197,7 +219,35 @@ class EzLog:
             "textColor": self._config.get("textColor", "white"),
             "bracesColor": self._config.get("bracesColor", "light-white"),
             "timestamp": False if ts is False else dict(ts or {}),
+            "stdlibLevel": self._config.get("stdlibLevel", DEFAULT_STDLIB_LEVEL),
         }
+
+    def _resolve_stdlib_level(self, level: StdLevel) -> int:
+        """Normalize stdlib level from int, stdlib name, or ezlog level name."""
+        if isinstance(level, int):
+            if level in _STDLIB_LEVEL_MAP:
+                return level
+            raise ValueError(f"Invalid stdlib numeric level: {level}")
+        normalized = level.strip().upper()
+        if normalized in _STDLIB_LEVEL_NAME_MAP:
+            return _STDLIB_LEVEL_NAME_MAP[normalized]
+        lowered = level.strip().lower()
+        if lowered in _STD_LEVEL_FROM_EZLOG:
+            return _STD_LEVEL_FROM_EZLOG[lowered]  # type: ignore[index]
+        raise ValueError(f"Invalid stdlib level: {level}")
+
+    def set_stdlib_level(self, level: StdLevel) -> None:
+        """Set root stdlib logging level while keeping ezlog wire active."""
+        numeric_level = self._resolve_stdlib_level(level)
+        if isinstance(level, str):
+            self._config["stdlibLevel"] = level.upper()
+        else:
+            self._config["stdlibLevel"] = level
+        _wire_to_stdlib(self, numeric_level)
+
+    def set_stdlib_debug(self, enabled: bool) -> None:
+        """Shortcut: DEBUG when enabled, INFO when disabled."""
+        self.set_stdlib_level(logging.DEBUG if enabled else logging.INFO)
 
     def _get_timestamp(self, level: LogLevel) -> str:
         if self._config.get("timestamp") is False:
@@ -536,14 +586,14 @@ class _EzLogHandler(logging.Handler):
             self.handleError(record)
 
 
-def _wire_to_stdlib(ezlog_instance: EzLog) -> None:
+def _wire_to_stdlib(ezlog_instance: EzLog, stdlib_level: int = logging.DEBUG) -> None:
     """Register this EzLog as the handler for stdlib root logger (replaces any previous)."""
     root = logging.getLogger()
     for handler in list(root.handlers):
         if type(handler).__name__ == "_EzLogHandler":
             root.removeHandler(handler)
     root.addHandler(_EzLogHandler(ezlog_instance))
-    root.setLevel(logging.DEBUG)
+    root.setLevel(stdlib_level)
 
 
 class _SegmentedEzLog:
